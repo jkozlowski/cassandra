@@ -493,6 +493,9 @@ public class Config
     @Replaces(oldName = "commitlog_segment_size_in_mb", converter = Converters.MEBIBYTES_DATA_STORAGE_INT, deprecated = true)
     public DataStorageSpec.IntMebibytesBound commitlog_segment_size = new DataStorageSpec.IntMebibytesBound("32MiB");
     public ParameterizedClass commitlog_compression;
+
+    // Prefill mmap segments and disable their cache hint.
+    public boolean commitlog_prefill_improvements = false;
     public FlushCompression flush_compression = FlushCompression.fast;
     public int commitlog_max_compression_buffers_in_pool = 3;
     public DiskAccessMode commitlog_disk_access_mode = DiskAccessMode.legacy;

@@ -3376,6 +3376,17 @@ public class DatabaseDescriptor
         conf.commitlog_compression = compressor;
     }
 
+    public static boolean getCommitLogPrefillImprovements()
+    {
+        return conf.commitlog_prefill_improvements;
+    }
+
+    @VisibleForTesting
+    public static void setCommitLogPrefillImprovements(boolean enabled)
+    {
+        conf.commitlog_prefill_improvements = enabled;
+    }
+
     public static String getAccordJournalDirectory()
     {
         return conf.accord.journal_directory;
