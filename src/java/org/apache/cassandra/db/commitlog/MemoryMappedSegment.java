@@ -40,6 +40,7 @@ import org.apache.cassandra.utils.memory.MemoryUtil;
  */
 public class MemoryMappedSegment extends CommitLogSegment
 {
+    private final boolean prefillImprovements = DatabaseDescriptor.getCommitLogPrefillImprovements();
     private final int fd;
 
     /**
@@ -52,7 +53,7 @@ public class MemoryMappedSegment extends CommitLogSegment
         int firstSync = buffer.position();
         buffer.putInt(firstSync + 0, 0);
         buffer.putInt(firstSync + 4, 0);
-        fd = NativeLibrary.getfd(channel);
+        fd = prefillImprovements ? -1 : NativeLibrary.getfd(channel);
     }
 
     @Override
@@ -60,6 +61,9 @@ public class MemoryMappedSegment extends CommitLogSegment
     {
         try
         {
+            if (DatabaseDescriptor.getCommitLogPrefillImprovements())
+                zeroFill();
+
             MappedByteBuffer mappedFile = channel.map(FileChannel.MapMode.READ_WRITE, 0, DatabaseDescriptor.getCommitLogSegmentSize());
             manager.addSize(DatabaseDescriptor.getCommitLogSegmentSize());
             return mappedFile;
@@ -97,7 +101,10 @@ public class MemoryMappedSegment extends CommitLogSegment
         {
             throw new FSWriteError(e, getPath());
         }
-        NativeLibrary.trySkipCache(fd, startMarker, nextMarker, logFile.absolutePath());
+        // The existing hint passes an end offset as the length and can evict untouched prefilled pages.
+        // Disable it with prefill improvements; force() provides durability independently of this hint.
+        if (!prefillImprovements)
+            NativeLibrary.trySkipCache(fd, startMarker, nextMarker, logFile.absolutePath());
     }
 
     @Override

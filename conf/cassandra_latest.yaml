@@ -715,6 +715,12 @@ commitlog_segment_size: 32MiB
 # The default setting is legacy when the storage compatibility is set to 4 or auto otherwise.
 commitlog_disk_access_mode: auto
 
+# Prefill and sync mmap segments before mapping, and disable their cache hint.
+# Uses 4 KiB writes, a data sync every MiB, and a final metadata sync before mapping.
+# Adds background writes and segment creation time. Applies only to mmap commitlogs.
+# When disabled, existing mmap behavior is retained.
+# commitlog_prefill_improvements: false
+
 # Experimental.  New garbage free compaction path.  Does not yet support collections, counters, BTI.
 cursor_compaction_enabled: true
 

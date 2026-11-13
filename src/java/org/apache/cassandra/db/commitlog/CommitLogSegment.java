@@ -68,6 +68,8 @@ import static org.apache.cassandra.utils.concurrent.WaitQueue.newWaitQueue;
  */
 public abstract class CommitLogSegment
 {
+    private static final int ZERO_FILL_SYNC_BYTES = 1024 * 1024;
+
     private final static long idBase;
 
     private volatile CDCState cdcState = CDCState.PERMITTED;
@@ -196,6 +198,40 @@ public abstract class CommitLogSegment
     protected ByteBuffer createBuffer()
     {
         return manager.getBufferPool().createBuffer();
+    }
+
+    // Prepare written extents before use, syncing in batches to bound outstanding preparation IO.
+    final void zeroFill() throws IOException
+    {
+        ByteBuffer zeros = ZeroFillBuffer.ZEROES.duplicate();
+        int blockSize = zeros.capacity();
+        // Segment sizes and the sync interval are whole MiB, hence multiples of the 4 KiB zero buffer.
+        int segmentSize = DatabaseDescriptor.getCommitLogSegmentSize();
+        for (long position = 0; position < segmentSize; position += blockSize)
+        {
+            zeros.clear();
+            writeFully(zeros, position);
+            if ((position + blockSize) % ZERO_FILL_SYNC_BYTES == 0)
+                SyncUtil.force(channel, false);
+        }
+        SyncUtil.force(channel, true);
+    }
+
+    final void writeFully(ByteBuffer source, long offset) throws IOException
+    {
+        while (source.hasRemaining())
+        {
+            int written = channel.write(source, offset);
+            if (written <= 0)
+                throw new IOException("Commit-log channel made no write progress");
+            offset += written;
+        }
+    }
+
+    private static final class ZeroFillBuffer
+    {
+        // Allocate lazily and share immutable zeroes with independent positions and limits.
+        private static final ByteBuffer ZEROES = ByteBuffer.allocateDirect(4 * 1024).asReadOnlyBuffer();
     }
 
     /**
